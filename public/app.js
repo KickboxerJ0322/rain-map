@@ -43,6 +43,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
 function cacheElements() {
   ui.baseTimeValue = document.getElementById("baseTimeValue");
+  ui.legendPanel = document.querySelector(".map-legend");
   ui.legendBody = document.getElementById("legendBody");
   ui.legendToggleButton = document.getElementById("legendToggleButton");
   ui.locationButton = document.getElementById("locationButton");
@@ -158,6 +159,7 @@ function wireEvents() {
 }
 
 function updateLegendVisibility() {
+  ui.legendPanel.classList.toggle("is-collapsed", !state.isLegendVisible);
   ui.legendBody.classList.toggle("is-hidden", !state.isLegendVisible);
   ui.legendToggleButton.textContent = state.isLegendVisible ? "非表示" : "表示";
   ui.legendToggleButton.setAttribute("aria-expanded", String(state.isLegendVisible));
