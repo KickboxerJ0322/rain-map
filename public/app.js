@@ -5,6 +5,7 @@ const JMA_ROOT = "https://www.jma.go.jp/bosai/jmatile/data/nowc";
 const FRAME_OFFSETS = Array.from({ length: 13 }, (_, index) => index * 5);
 const NOWCAST_OBS_TIMES_URL = `${JMA_ROOT}/targetTimes_N1.json`;
 const NOWCAST_FORECAST_TIMES_URL = `${JMA_ROOT}/targetTimes_N2.json`;
+const FALLBACK_JMA_ZOOM = 8;
 const MAX_NATIVE_JMA_ZOOM = 10;
 
 const state = {
@@ -241,6 +242,7 @@ function createNowcastOverlay() {
       tile.style.height = "256px";
       tile.style.opacity = String(state.opacity);
       tile.style.overflow = "hidden";
+      tile.style.position = "relative";
 
       if (!state.overlayEnabled || !state.frames.length || !isValidTileCoordinate(coord, zoom)) {
         return tile;
@@ -251,39 +253,76 @@ function createNowcastOverlay() {
         return tile;
       }
 
-      const effectiveZoom = Math.min(zoom, MAX_NATIVE_JMA_ZOOM);
-      const zoomDelta = zoom - effectiveZoom;
-      const scale = 2 ** zoomDelta;
       const normalizedX = modulo(coord.x, 2 ** zoom);
-      const sourceX = Math.floor(normalizedX / scale);
-      const sourceY = Math.floor(coord.y / scale);
+      const fallbackZoom = Math.min(zoom, FALLBACK_JMA_ZOOM);
+      const effectiveZoom = Math.min(zoom, MAX_NATIVE_JMA_ZOOM);
+      const tileLayers = [];
 
-      if (!isValidTileCoordinate({ x: sourceX, y: sourceY }, effectiveZoom)) {
-        return tile;
+      tileLayers.push(buildTileLayer({
+        baseTime: frame.baseTime,
+        coordY: coord.y,
+        ownerDocument,
+        targetX: normalizedX,
+        validTime: frame.validTime,
+        zoom,
+        sourceZoom: fallbackZoom,
+        zIndex: 0
+      }));
+
+      if (effectiveZoom > fallbackZoom) {
+        tileLayers.push(buildTileLayer({
+          baseTime: frame.baseTime,
+          coordY: coord.y,
+          ownerDocument,
+          targetX: normalizedX,
+          validTime: frame.validTime,
+          zoom,
+          sourceZoom: effectiveZoom,
+          zIndex: 1
+        }));
       }
 
-      const childX = normalizedX % scale;
-      const childY = coord.y % scale;
-      const img = ownerDocument.createElement("img");
-      img.alt = "";
-      img.draggable = false;
-      img.loading = "eager";
-      img.decoding = "async";
-      img.src = buildJmaTileUrl(frame.baseTime, frame.validTime, effectiveZoom, sourceX, sourceY);
-      img.style.width = `${256 * scale}px`;
-      img.style.height = `${256 * scale}px`;
-      img.style.marginLeft = `${-childX * 256}px`;
-      img.style.marginTop = `${-childY * 256}px`;
-      img.style.userSelect = "none";
-      img.style.pointerEvents = "none";
+      for (const layer of tileLayers) {
+        if (layer) {
+          tile.appendChild(layer);
+        }
+      }
 
-      tile.appendChild(img);
       return tile;
     },
     releaseTile(tile) {
       tile.replaceChildren();
     }
   };
+}
+
+function buildTileLayer({ baseTime, coordY, ownerDocument, sourceZoom, targetX, validTime, zoom, zIndex }) {
+  const zoomDelta = zoom - sourceZoom;
+  const scale = 2 ** zoomDelta;
+  const sourceX = Math.floor(targetX / scale);
+  const sourceY = Math.floor(coordY / scale);
+
+  if (!isValidTileCoordinate({ x: sourceX, y: sourceY }, sourceZoom)) {
+    return null;
+  }
+
+  const childX = targetX % scale;
+  const childY = coordY % scale;
+  const img = ownerDocument.createElement("img");
+  img.alt = "";
+  img.draggable = false;
+  img.loading = "eager";
+  img.decoding = "async";
+  img.src = buildJmaTileUrl(baseTime, validTime, sourceZoom, sourceX, sourceY);
+  img.style.position = "absolute";
+  img.style.left = `${-childX * 256}px`;
+  img.style.top = `${-childY * 256}px`;
+  img.style.width = `${256 * scale}px`;
+  img.style.height = `${256 * scale}px`;
+  img.style.userSelect = "none";
+  img.style.pointerEvents = "none";
+  img.style.zIndex = String(zIndex);
+  return img;
 }
 
 function formatJmaTimestamp(date) {
