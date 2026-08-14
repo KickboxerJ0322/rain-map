@@ -99,6 +99,10 @@ function initializeMap() {
         return transparentTile();
       }
 
+      if (!isValidTileCoordinate(coord, zoom)) {
+        return transparentTile();
+      }
+
       const frame = state.frames[state.activeFrameIndex];
       if (!frame) {
         return transparentTile();
@@ -108,7 +112,9 @@ function initializeMap() {
     },
     tileSize: new google.maps.Size(256, 256),
     name: "Rain Nowcast",
-    opacity: state.opacity
+    opacity: state.opacity,
+    maxZoom: 20,
+    minZoom: 0
   });
 
   state.map.overlayMapTypes.clear();
@@ -116,6 +122,10 @@ function initializeMap() {
 }
 
 function wireEvents() {
+  state.map.addListener("zoom_changed", () => {
+    refreshOverlay();
+  });
+
   ui.overlayToggle.addEventListener("change", () => {
     state.overlayEnabled = ui.overlayToggle.checked;
     refreshOverlay();
@@ -364,4 +374,9 @@ function pad(value) {
 
 function modulo(value, divisor) {
   return ((value % divisor) + divisor) % divisor;
+}
+
+function isValidTileCoordinate(coord, zoom) {
+  const limit = 2 ** zoom;
+  return coord.y >= 0 && coord.y < limit;
 }
