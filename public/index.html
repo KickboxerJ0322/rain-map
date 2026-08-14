@@ -12,8 +12,10 @@
       <header class="topbar">
         <div class="brand-block">
           <img class="brand-logo" src="/rain-map_logo.png" alt="Rain Nowcast Map logo">
-          <h1>Rain Nowcast Map</h1>
-          <p class="subcopy">気象庁の「雨雲の動き」を Google Maps 上に重ねて表示します。</p>
+          <div class="brand-copy">
+            <h1>Rain Nowcast Map</h1>
+            <p class="subcopy">気象庁の「雨雲の動き」を Google Maps 上に重ねて表示します。</p>
+          </div>
         </div>
         <button id="locationButton" class="ghost-button" type="button">現在地へ</button>
       </header>
@@ -21,7 +23,7 @@
       <main class="layout">
         <section class="map-card">
           <div id="map" aria-label="Rain cloud map"></div>
-          <div class="map-badge" id="statusBadge">初期化中...</div>
+          <div class="map-badge" id="statusBadge">読み込み中...</div>
         </section>
 
         <aside class="control-card">
@@ -73,8 +75,8 @@
             <h2>使い方</h2>
             <ul class="notes">
               <li>実況から +60 分までを 5 分刻みで切り替えます。</li>
-              <li>最新タイルが未反映のときは 1 つ前の基準時刻へ自動で戻します。</li>
-              <li>Google Maps API キーは `GOOGLE_MAPS_API_KEY` 環境変数で設定します。</li>
+              <li>最新タイルが届くまでの間は 1 つ前の基準時刻へ自動で戻します。</li>
+              <li>Google Maps API キーは <code>GOOGLE_MAPS_API_KEY</code> 環境変数で設定します。</li>
             </ul>
           </div>
         </aside>

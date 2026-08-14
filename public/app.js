@@ -5,8 +5,7 @@ const JMA_ROOT = "https://www.jma.go.jp/bosai/jmatile/data/nowc";
 const FRAME_OFFSETS = Array.from({ length: 13 }, (_, index) => index * 5);
 const NOWCAST_OBS_TIMES_URL = `${JMA_ROOT}/targetTimes_N1.json`;
 const NOWCAST_FORECAST_TIMES_URL = `${JMA_ROOT}/targetTimes_N2.json`;
-const FALLBACK_JMA_ZOOM = 8;
-const MAX_NATIVE_JMA_ZOOM = 10;
+const SOURCE_JMA_ZOOMS = [8, 10];
 
 const state = {
   map: null,
@@ -254,33 +253,19 @@ function createNowcastOverlay() {
       }
 
       const normalizedX = modulo(coord.x, 2 ** zoom);
-      const fallbackZoom = Math.min(zoom, FALLBACK_JMA_ZOOM);
-      const effectiveZoom = Math.min(zoom, MAX_NATIVE_JMA_ZOOM);
-      const tileLayers = [];
-
-      tileLayers.push(buildTileLayer({
-        baseTime: frame.baseTime,
-        coordY: coord.y,
-        ownerDocument,
-        targetX: normalizedX,
-        validTime: frame.validTime,
-        zoom,
-        sourceZoom: fallbackZoom,
-        zIndex: 0
-      }));
-
-      if (effectiveZoom > fallbackZoom) {
-        tileLayers.push(buildTileLayer({
+      const sourceZooms = selectSourceZooms(zoom);
+      const tileLayers = sourceZooms.map((sourceZoom, index) =>
+        buildTileLayer({
           baseTime: frame.baseTime,
           coordY: coord.y,
           ownerDocument,
           targetX: normalizedX,
           validTime: frame.validTime,
           zoom,
-          sourceZoom: effectiveZoom,
-          zIndex: 1
-        }));
-      }
+          sourceZoom,
+          zIndex: index
+        })
+      );
 
       for (const layer of tileLayers) {
         if (layer) {
@@ -296,18 +281,95 @@ function createNowcastOverlay() {
   };
 }
 
-function buildTileLayer({ baseTime, coordY, ownerDocument, sourceZoom, targetX, validTime, zoom, zIndex }) {
-  const zoomDelta = zoom - sourceZoom;
-  const scale = 2 ** zoomDelta;
-  const sourceX = Math.floor(targetX / scale);
-  const sourceY = Math.floor(coordY / scale);
+function selectSourceZooms(targetZoom) {
+  const lowerZooms = SOURCE_JMA_ZOOMS.filter((zoom) => zoom <= targetZoom);
+  const higherZooms = SOURCE_JMA_ZOOMS.filter((zoom) => zoom >= targetZoom);
+  const selected = [];
 
-  if (!isValidTileCoordinate({ x: sourceX, y: sourceY }, sourceZoom)) {
-    return null;
+  const nearestLower = lowerZooms.at(-1);
+  const nearestHigher = higherZooms[0];
+
+  if (nearestLower !== undefined) {
+    selected.push(nearestLower);
   }
 
-  const childX = targetX % scale;
-  const childY = coordY % scale;
+  if (nearestHigher !== undefined && nearestHigher !== nearestLower) {
+    selected.push(nearestHigher);
+  }
+
+  if (!selected.length) {
+    selected.push(SOURCE_JMA_ZOOMS[0]);
+  }
+
+  return selected;
+}
+
+function buildTileLayer({ baseTime, coordY, ownerDocument, sourceZoom, targetX, validTime, zoom, zIndex }) {
+  const layer = ownerDocument.createElement("div");
+  layer.style.position = "absolute";
+  layer.style.inset = "0";
+  layer.style.zIndex = String(zIndex);
+
+  if (sourceZoom <= zoom) {
+    const zoomDelta = zoom - sourceZoom;
+    const scale = 2 ** zoomDelta;
+    const sourceX = Math.floor(targetX / scale);
+    const sourceY = Math.floor(coordY / scale);
+
+    if (!isValidTileCoordinate({ x: sourceX, y: sourceY }, sourceZoom)) {
+      return null;
+    }
+
+    const childX = targetX % scale;
+    const childY = coordY % scale;
+    layer.appendChild(createTileImage({
+      baseTime,
+      height: 256 * scale,
+      left: -childX * 256,
+      ownerDocument,
+      sourceX,
+      sourceY,
+      sourceZoom,
+      top: -childY * 256,
+      validTime,
+      width: 256 * scale
+    }));
+    return layer;
+  }
+
+  const scaleDown = 2 ** (sourceZoom - zoom);
+  const sourceStartX = targetX * scaleDown;
+  const sourceStartY = coordY * scaleDown;
+  const fragmentSize = 256 / scaleDown;
+
+  for (let dy = 0; dy < scaleDown; dy++) {
+    for (let dx = 0; dx < scaleDown; dx++) {
+      const sourceX = sourceStartX + dx;
+      const sourceY = sourceStartY + dy;
+
+      if (!isValidTileCoordinate({ x: sourceX, y: sourceY }, sourceZoom)) {
+        continue;
+      }
+
+      layer.appendChild(createTileImage({
+        baseTime,
+        height: fragmentSize,
+        left: dx * fragmentSize,
+        ownerDocument,
+        sourceX,
+        sourceY,
+        sourceZoom,
+        top: dy * fragmentSize,
+        validTime,
+        width: fragmentSize
+      }));
+    }
+  }
+
+  return layer;
+}
+
+function createTileImage({ baseTime, height, left, ownerDocument, sourceX, sourceY, sourceZoom, top, validTime, width }) {
   const img = ownerDocument.createElement("img");
   img.alt = "";
   img.draggable = false;
@@ -315,13 +377,12 @@ function buildTileLayer({ baseTime, coordY, ownerDocument, sourceZoom, targetX, 
   img.decoding = "async";
   img.src = buildJmaTileUrl(baseTime, validTime, sourceZoom, sourceX, sourceY);
   img.style.position = "absolute";
-  img.style.left = `${-childX * 256}px`;
-  img.style.top = `${-childY * 256}px`;
-  img.style.width = `${256 * scale}px`;
-  img.style.height = `${256 * scale}px`;
+  img.style.left = `${left}px`;
+  img.style.top = `${top}px`;
+  img.style.width = `${width}px`;
+  img.style.height = `${height}px`;
   img.style.userSelect = "none";
   img.style.pointerEvents = "none";
-  img.style.zIndex = String(zIndex);
   return img;
 }
 
