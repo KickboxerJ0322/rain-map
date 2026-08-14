@@ -1,0 +1,19 @@
+{
+  "name": "rain-nowcast-map",
+  "version": "1.0.0",
+  "description": "Google Maps with JMA nowcast rain cloud overlay.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "keywords": [
+    "google-maps",
+    "jma",
+    "rain",
+    "nowcast"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.21.2"
+  }
+}

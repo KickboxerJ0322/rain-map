@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Rain Nowcast Map</title>
+    <link rel="stylesheet" href="/style.css">
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">JMA x Google Maps</p>
+          <h1>Rain Nowcast Map</h1>
+          <p class="subcopy">気象庁の「雨雲の動き」を Google Maps 上に重ねて表示します。</p>
+        </div>
+        <button id="locationButton" class="ghost-button" type="button">現在地へ</button>
+      </header>
+
+      <main class="layout">
+        <section class="map-card">
+          <div id="map" aria-label="Rain cloud map"></div>
+          <div class="map-badge" id="statusBadge">初期化中...</div>
+        </section>
+
+        <aside class="control-card">
+          <div class="panel">
+            <div class="panel-head">
+              <h2>表示設定</h2>
+              <label class="toggle">
+                <input id="overlayToggle" type="checkbox" checked>
+                <span>雨雲レイヤー</span>
+              </label>
+            </div>
+
+            <label class="field">
+              <span>透明度: <strong id="opacityValue">75%</strong></span>
+              <input id="opacitySlider" type="range" min="0" max="100" step="5" value="75">
+            </label>
+
+            <label class="field">
+              <span>再生速度: <strong id="speedValue">900ms</strong></span>
+              <input id="speedSlider" type="range" min="300" max="2000" step="100" value="900">
+            </label>
+
+            <div class="meta-grid">
+              <div>
+                <span class="meta-label">基準時刻</span>
+                <strong id="baseTimeValue">-</strong>
+              </div>
+              <div>
+                <span class="meta-label">表示時刻</span>
+                <strong id="validTimeValue">-</strong>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-head">
+              <h2>タイムスライダー</h2>
+              <button id="refreshButton" class="ghost-button small" type="button">最新化</button>
+            </div>
+
+            <div class="timeline">
+              <button id="playButton" class="primary-button" type="button">再生</button>
+              <input id="timeSlider" type="range" min="0" max="12" step="1" value="0">
+            </div>
+            <div id="timelineLabels" class="timeline-labels" aria-hidden="true"></div>
+          </div>
+
+          <div class="panel">
+            <h2>使い方</h2>
+            <ul class="notes">
+              <li>実況から +60 分までを 5 分刻みで切り替えます。</li>
+              <li>最新タイルが未反映のときは 1 つ前の基準時刻へ自動で戻します。</li>
+              <li>Google Maps API キーは `GOOGLE_MAPS_API_KEY` 環境変数で設定します。</li>
+            </ul>
+          </div>
+        </aside>
+      </main>
+    </div>
+
+    <script src="/config.js"></script>
+    <script src="/app.js"></script>
+  </body>
+</html>
