@@ -1,7 +1,7 @@
 const DEFAULT_CENTER = { lat: 35.681236, lng: 139.767125 };
 const DEFAULT_ZOOM = 5;
 const DEFAULT_OPACITY = 0.75;
-const DEFAULT_PLAYBACK_MS = 500;
+const DEFAULT_PLAYBACK_MS = 1000;
 const JMA_ROOT = "https://www.jma.go.jp/bosai/jmatile/data/nowc";
 const FRAME_OFFSETS = Array.from({ length: 13 }, (_, index) => index * 5);
 const NOWCAST_OBS_TIMES_URL = `${JMA_ROOT}/targetTimes_N1.json`;
