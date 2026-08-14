@@ -43,4 +43,5 @@ jobs:
             GOOGLE_MAPS_API_KEY=${{ secrets.GOOGLE_MAPS_API_KEY }}
 
       - name: Show Service URL
-        run: echo "Service URL: ${{ steps.deploy.outputs.url }}"
+        run: |
+          echo "Service URL: ${{ steps.deploy.outputs.url }}"
