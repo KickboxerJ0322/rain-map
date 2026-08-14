@@ -5,6 +5,7 @@ const JMA_ROOT = "https://www.jma.go.jp/bosai/jmatile/data/nowc";
 const FRAME_OFFSETS = Array.from({ length: 13 }, (_, index) => index * 5);
 const NOWCAST_OBS_TIMES_URL = `${JMA_ROOT}/targetTimes_N1.json`;
 const NOWCAST_FORECAST_TIMES_URL = `${JMA_ROOT}/targetTimes_N2.json`;
+const MAX_NATIVE_JMA_ZOOM = 10;
 
 const state = {
   map: null,
@@ -93,29 +94,7 @@ function initializeMap() {
     gestureHandling: "greedy"
   });
 
-  state.overlay = new google.maps.ImageMapType({
-    getTileUrl(coord, zoom) {
-      if (!state.overlayEnabled || !state.frames.length) {
-        return transparentTile();
-      }
-
-      if (!isValidTileCoordinate(coord, zoom)) {
-        return transparentTile();
-      }
-
-      const frame = state.frames[state.activeFrameIndex];
-      if (!frame) {
-        return transparentTile();
-      }
-
-      return buildJmaTileUrl(frame.baseTime, frame.validTime, zoom, coord.x, coord.y);
-    },
-    tileSize: new google.maps.Size(256, 256),
-    name: "Rain Nowcast",
-    opacity: state.opacity,
-    maxZoom: 20,
-    minZoom: 0
-  });
+  state.overlay = createNowcastOverlay();
 
   state.map.overlayMapTypes.clear();
   state.map.overlayMapTypes.push(state.overlay);
@@ -134,7 +113,7 @@ function wireEvents() {
   ui.opacitySlider.addEventListener("input", () => {
     state.opacity = Number(ui.opacitySlider.value) / 100;
     ui.opacityValue.textContent = `${ui.opacitySlider.value}%`;
-    state.overlay.setOpacity(state.opacity);
+    refreshOverlay();
   });
 
   ui.speedSlider.addEventListener("input", () => {
@@ -247,6 +226,64 @@ function buildJmaTileUrl(baseTime, validTime, zoom, x, y) {
   const valid = formatJmaTimestamp(validTime);
 
   return `${JMA_ROOT}/${base}/none/${valid}/surf/hrpns/${zoom}/${normalizedX}/${boundedY}.png`;
+}
+
+function createNowcastOverlay() {
+  return {
+    alt: "Rain Nowcast",
+    maxZoom: 20,
+    minZoom: 0,
+    name: "Rain Nowcast",
+    tileSize: new google.maps.Size(256, 256),
+    getTile(coord, zoom, ownerDocument) {
+      const tile = ownerDocument.createElement("div");
+      tile.style.width = "256px";
+      tile.style.height = "256px";
+      tile.style.opacity = String(state.opacity);
+      tile.style.overflow = "hidden";
+
+      if (!state.overlayEnabled || !state.frames.length || !isValidTileCoordinate(coord, zoom)) {
+        return tile;
+      }
+
+      const frame = state.frames[state.activeFrameIndex];
+      if (!frame) {
+        return tile;
+      }
+
+      const effectiveZoom = Math.min(zoom, MAX_NATIVE_JMA_ZOOM);
+      const zoomDelta = zoom - effectiveZoom;
+      const scale = 2 ** zoomDelta;
+      const normalizedX = modulo(coord.x, 2 ** zoom);
+      const sourceX = Math.floor(normalizedX / scale);
+      const sourceY = Math.floor(coord.y / scale);
+
+      if (!isValidTileCoordinate({ x: sourceX, y: sourceY }, effectiveZoom)) {
+        return tile;
+      }
+
+      const childX = normalizedX % scale;
+      const childY = coord.y % scale;
+      const img = ownerDocument.createElement("img");
+      img.alt = "";
+      img.draggable = false;
+      img.loading = "eager";
+      img.decoding = "async";
+      img.src = buildJmaTileUrl(frame.baseTime, frame.validTime, effectiveZoom, sourceX, sourceY);
+      img.style.width = `${256 * scale}px`;
+      img.style.height = `${256 * scale}px`;
+      img.style.marginLeft = `${-childX * 256}px`;
+      img.style.marginTop = `${-childY * 256}px`;
+      img.style.userSelect = "none";
+      img.style.pointerEvents = "none";
+
+      tile.appendChild(img);
+      return tile;
+    },
+    releaseTile(tile) {
+      tile.replaceChildren();
+    }
+  };
 }
 
 function formatJmaTimestamp(date) {
