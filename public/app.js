@@ -1,6 +1,7 @@
 const DEFAULT_CENTER = { lat: 35.681236, lng: 139.767125 };
 const DEFAULT_ZOOM = 5;
 const DEFAULT_OPACITY = 0.75;
+const DEFAULT_PLAYBACK_MS = 500;
 const JMA_ROOT = "https://www.jma.go.jp/bosai/jmatile/data/nowc";
 const FRAME_OFFSETS = Array.from({ length: 13 }, (_, index) => index * 5);
 const NOWCAST_OBS_TIMES_URL = `${JMA_ROOT}/targetTimes_N1.json`;
@@ -16,8 +17,9 @@ const state = {
   overlayEnabled: true,
   opacity: DEFAULT_OPACITY,
   isPlaying: false,
+  isLegendVisible: true,
   playTimerId: null,
-  playbackMs: 900,
+  playbackMs: DEFAULT_PLAYBACK_MS,
   useFallbackBaseTime: false
 };
 
@@ -26,6 +28,7 @@ const ui = {};
 document.addEventListener("DOMContentLoaded", async () => {
   cacheElements();
   renderTimelineLabels();
+  updateLegendVisibility();
 
   try {
     await loadGoogleMaps();
@@ -34,12 +37,14 @@ document.addEventListener("DOMContentLoaded", async () => {
     await refreshTimeline();
   } catch (error) {
     console.error(error);
-    setStatus("Google Maps の初期化に失敗しました。API キーを確認してください。");
+    setStatus("Google Maps の読み込みに失敗しました。API キーを確認してください。");
   }
 });
 
 function cacheElements() {
   ui.baseTimeValue = document.getElementById("baseTimeValue");
+  ui.legendBody = document.getElementById("legendBody");
+  ui.legendToggleButton = document.getElementById("legendToggleButton");
   ui.locationButton = document.getElementById("locationButton");
   ui.opacitySlider = document.getElementById("opacitySlider");
   ui.opacityValue = document.getElementById("opacityValue");
@@ -105,6 +110,11 @@ function wireEvents() {
     refreshOverlay();
   });
 
+  ui.legendToggleButton.addEventListener("click", () => {
+    state.isLegendVisible = !state.isLegendVisible;
+    updateLegendVisibility();
+  });
+
   ui.overlayToggle.addEventListener("change", () => {
     state.overlayEnabled = ui.overlayToggle.checked;
     refreshOverlay();
@@ -147,6 +157,12 @@ function wireEvents() {
   ui.locationButton.addEventListener("click", panToCurrentLocation);
 }
 
+function updateLegendVisibility() {
+  ui.legendBody.classList.toggle("is-hidden", !state.isLegendVisible);
+  ui.legendToggleButton.textContent = state.isLegendVisible ? "非表示" : "表示";
+  ui.legendToggleButton.setAttribute("aria-expanded", String(state.isLegendVisible));
+}
+
 async function refreshTimeline(force = false) {
   try {
     const frames = await fetchNowcastFrames();
@@ -169,7 +185,7 @@ async function refreshTimeline(force = false) {
     updateDisplayedFrame();
   } catch (error) {
     console.error(error);
-    setStatus("雨雲データの取得に失敗しました。しばらくしてから最新化をお試しください。");
+    setStatus("雨雲データの取得に失敗しました。しばらくしてから最新化してください。");
   }
 }
 
@@ -221,19 +237,18 @@ function toFrame(entry) {
 
 function buildJmaTileUrl(baseTime, validTime, zoom, x, y) {
   const normalizedX = modulo(x, 2 ** zoom);
-  const boundedY = y;
   const base = formatJmaTimestamp(baseTime);
   const valid = formatJmaTimestamp(validTime);
 
-  return `${JMA_ROOT}/${base}/none/${valid}/surf/hrpns/${zoom}/${normalizedX}/${boundedY}.png`;
+  return `${JMA_ROOT}/${base}/none/${valid}/surf/hrpns/${zoom}/${normalizedX}/${y}.png`;
 }
 
 function createNowcastOverlay() {
   return {
-    alt: "Rain Nowcast",
+    alt: "Rain Map",
     maxZoom: 20,
     minZoom: 0,
-    name: "Rain Nowcast",
+    name: "Rain Map",
     tileSize: new google.maps.Size(256, 256),
     getTile(coord, zoom, ownerDocument) {
       const tile = ownerDocument.createElement("div");
@@ -259,10 +274,10 @@ function createNowcastOverlay() {
           baseTime: frame.baseTime,
           coordY: coord.y,
           ownerDocument,
+          sourceZoom,
           targetX: normalizedX,
           validTime: frame.validTime,
           zoom,
-          sourceZoom,
           zIndex: index
         })
       );
@@ -414,7 +429,7 @@ function updateDisplayedFrame() {
   ui.baseTimeValue.textContent = formatDisplayTime(frame.baseTime);
   ui.validTimeValue.textContent = formatDisplayTime(frame.validTime);
 
-  const label = state.useFallbackBaseTime ? "前基準時刻で表示中" : "最新基準時刻を表示中";
+  const label = state.useFallbackBaseTime ? "前回の基準時刻で表示中" : "最新の基準時刻を表示中";
   setStatus(`${label} | ${frame.offsetMinutes === 0 ? "実況" : `+${frame.offsetMinutes}分`}`);
   refreshOverlay();
 }
@@ -471,7 +486,7 @@ function panToCurrentLocation() {
     },
     (error) => {
       console.error(error);
-      setStatus("位置情報を取得できませんでした。ブラウザの許可設定をご確認ください。");
+      setStatus("現在地情報を取得できませんでした。ブラウザの位置情報設定を確認してください。");
     },
     {
       enableHighAccuracy: true,
@@ -499,10 +514,6 @@ function setStatus(text) {
 
 function isSameBaseTime(left, right) {
   return left?.getTime() === right?.getTime();
-}
-
-function transparentTile() {
-  return "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==";
 }
 
 function pad(value) {

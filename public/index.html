@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Rain Nowcast Map</title>
+    <title>Rain Map</title>
     <link rel="icon" type="image/png" href="/rain-map_logo.png">
     <link rel="stylesheet" href="/style.css">
   </head>
@@ -11,10 +11,9 @@
     <div class="app-shell">
       <header class="topbar">
         <div class="brand-block">
-          <img class="brand-logo" src="/rain-map_logo.png" alt="Rain Nowcast Map logo">
+          <img class="brand-logo" src="/rain-map_logo.png" alt="Rain Map logo">
           <div class="brand-copy">
-            <h1>Rain Nowcast Map</h1>
-            <p class="subcopy">気象庁の「雨雲の動き」を Google Maps 上に重ねて表示します。</p>
+            <h1>Rain Map</h1>
           </div>
         </div>
         <button id="locationButton" class="ghost-button" type="button">現在地へ</button>
@@ -23,6 +22,30 @@
       <main class="layout">
         <section class="map-card">
           <div id="map" aria-label="Rain cloud map"></div>
+
+          <div class="map-legend">
+            <div class="map-legend-head">
+              <strong>雨雲レイヤーの色</strong>
+              <button id="legendToggleButton" class="ghost-button tiny" type="button" aria-expanded="true">
+                非表示
+              </button>
+            </div>
+            <div id="legendBody" class="map-legend-body">
+              <div class="legend-scale" aria-hidden="true"></div>
+              <div class="legend-labels">
+                <span>弱い</span>
+                <span>強い</span>
+              </div>
+              <ul class="legend-notes">
+                <li>青: 弱い雨</li>
+                <li>黄: やや強い雨</li>
+                <li>赤: 強い雨</li>
+                <li>紫: 非常に激しい雨</li>
+              </ul>
+              <p class="legend-caption">色は降水強度（mm/h）の目安です。</p>
+            </div>
+          </div>
+
           <div class="map-badge" id="statusBadge">読み込み中...</div>
         </section>
 
@@ -42,8 +65,8 @@
             </label>
 
             <label class="field">
-              <span>再生速度: <strong id="speedValue">900ms</strong></span>
-              <input id="speedSlider" type="range" min="300" max="2000" step="100" value="900">
+              <span>再生速度: <strong id="speedValue">500ms</strong></span>
+              <input id="speedSlider" type="range" min="300" max="2000" step="100" value="500">
             </label>
 
             <div class="meta-grid">
@@ -74,9 +97,9 @@
           <div class="panel">
             <h2>使い方</h2>
             <ul class="notes">
+              <li>気象庁の「雨雲の動き」を Google Maps 上に重ねて表示します。</li>
               <li>実況から +60 分までを 5 分刻みで切り替えます。</li>
               <li>最新タイルが届くまでの間は 1 つ前の基準時刻へ自動で戻します。</li>
-              <li>Google Maps API キーは <code>GOOGLE_MAPS_API_KEY</code> 環境変数で設定します。</li>
             </ul>
           </div>
         </aside>
