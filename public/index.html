@@ -8,8 +8,8 @@
     <link rel="stylesheet" href="/style.css">
   </head>
   <body>
-    <div class="app-shell">
-      <header class="topbar">
+    <header class="site-header">
+      <div class="app-shell header-shell">
         <div class="brand-block">
           <img class="brand-logo" src="/rain-map_logo.png" alt="Rain Map logo">
           <div class="brand-copy">
@@ -17,8 +17,10 @@
           </div>
         </div>
         <button id="locationButton" class="ghost-button" type="button">現在地へ</button>
-      </header>
+      </div>
+    </header>
 
+    <div class="app-shell">
       <main class="layout">
         <section class="map-card">
           <div id="map" aria-label="Rain cloud map"></div>
