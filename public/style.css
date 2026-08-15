@@ -28,6 +28,7 @@ body {
 
 body {
   min-height: 100%;
+  padding-top: 64px;
 }
 
 .app-shell {
@@ -37,21 +38,25 @@ body {
 }
 
 .site-header {
-  position: sticky;
+  position: fixed;
   top: 0;
+  left: 0;
+  right: 0;
   z-index: 20;
-  background: rgba(247, 250, 252, 0.84);
-  backdrop-filter: blur(14px);
+  background: rgba(247, 250, 252, 0.94);
+  backdrop-filter: blur(16px);
   border-bottom: 1px solid rgba(20, 56, 92, 0.08);
+  box-shadow: 0 6px 18px rgba(17, 37, 58, 0.06);
 }
 
 .header-shell {
   display: flex;
   justify-content: space-between;
-  gap: 12px;
+  gap: 10px;
   align-items: center;
-  padding-top: 10px;
-  padding-bottom: 10px;
+  min-height: 64px;
+  padding-top: 8px;
+  padding-bottom: 8px;
 }
 
 h1,
@@ -63,7 +68,8 @@ p {
 .brand-block {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
+  min-width: 0;
 }
 
 .brand-copy {
@@ -72,19 +78,20 @@ p {
 }
 
 .brand-logo {
-  width: clamp(42px, 4vw, 56px);
+  width: 34px;
   height: auto;
   flex: 0 0 auto;
-  filter: drop-shadow(0 6px 14px rgba(20, 88, 158, 0.14));
+  filter: drop-shadow(0 4px 10px rgba(20, 88, 158, 0.12));
 }
 
 h1 {
-  font-size: clamp(1.4rem, 1.4vw, 1.8rem);
-  line-height: 1.1;
+  font-size: 1rem;
+  line-height: 1;
+  font-weight: 700;
 }
 
 .layout {
-  margin-top: 20px;
+  margin-top: 12px;
 }
 
 .layout {
@@ -326,6 +333,13 @@ h1 {
   font-weight: 700;
 }
 
+#locationButton {
+  margin-left: auto;
+  padding: 8px 14px;
+  font-size: 0.95rem;
+  white-space: nowrap;
+}
+
 .ghost-button.small {
   padding: 8px 12px;
   font-size: 0.9rem;
@@ -368,16 +382,26 @@ input[type="range"] {
   }
 
   .header-shell {
-    padding-top: 8px;
-    padding-bottom: 8px;
+    min-height: 56px;
+    padding-top: 6px;
+    padding-bottom: 6px;
   }
 
   .brand-block {
-    gap: 10px;
+    gap: 8px;
   }
 
   .brand-logo {
-    width: 42px;
+    width: 30px;
+  }
+
+  h1 {
+    font-size: 0.96rem;
+  }
+
+  #locationButton {
+    padding: 7px 12px;
+    font-size: 0.88rem;
   }
 
   .legend-dock {
