@@ -93,12 +93,33 @@ h1 {
   min-height: 72vh;
 }
 
-.map-legend {
+#map {
+  width: 100%;
+  min-height: 72vh;
+}
+
+.legend-dock {
   position: absolute;
   top: 18px;
   left: 18px;
   z-index: 2;
-  width: min(280px, calc(100% - 36px));
+  display: grid;
+  gap: 8px;
+  max-width: min(320px, calc(100% - 74px));
+}
+
+.legend-switcher {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.legend-tab.is-active {
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-dark) 100%);
+  color: #fff;
+}
+
+.map-legend {
   padding: 14px 16px;
   border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: 18px;
@@ -106,6 +127,10 @@ h1 {
   box-shadow: 0 12px 28px rgba(17, 37, 58, 0.1);
   backdrop-filter: blur(3px);
   color: #415366;
+}
+
+.map-legend.is-hidden {
+  display: none;
 }
 
 .map-legend-head {
@@ -124,26 +149,12 @@ h1 {
   margin-top: 12px;
 }
 
-.map-legend-body.is-hidden {
-  display: none;
-}
-
-.map-legend.is-collapsed {
-  width: auto;
-  padding: 8px 10px;
-}
-
-.map-legend.is-collapsed .map-legend-head {
-  justify-content: flex-start;
-}
-
-.map-legend.is-collapsed .map-legend-head strong {
-  display: none;
-}
-
 .legend-scale {
   height: 14px;
   border-radius: 999px;
+}
+
+.legend-scale.rain {
   background: linear-gradient(
     90deg,
     #d7ebff 0%,
@@ -155,6 +166,14 @@ h1 {
     #e03131 92%,
     #7b2cbf 100%
   );
+}
+
+.legend-scale.thunder {
+  background: linear-gradient(90deg, #d7ebff 0%, #8ac4ff 25%, #ffe066 50%, #ff922b 75%, #e03131 100%);
+}
+
+.legend-scale.tornado {
+  background: linear-gradient(90deg, #d7ebff 0%, #8ac4ff 35%, #ffd43b 65%, #e03131 100%);
 }
 
 .legend-labels {
@@ -183,11 +202,6 @@ h1 {
   text-shadow: 0 1px 2px rgba(255, 255, 255, 0.72);
 }
 
-#map {
-  width: 100%;
-  min-height: 72vh;
-}
-
 .map-badge {
   position: absolute;
   left: 18px;
@@ -214,6 +228,12 @@ h1 {
   justify-content: space-between;
   align-items: center;
   gap: 10px;
+  margin-bottom: 14px;
+}
+
+.toggle-stack {
+  display: grid;
+  gap: 8px;
   margin-bottom: 14px;
 }
 
@@ -341,10 +361,14 @@ input[type="range"] {
     gap: 14px;
   }
 
-  .map-legend {
-    width: calc(100% - 24px);
+  .legend-dock {
     top: 12px;
     left: 12px;
+    max-width: calc(100% - 72px);
+  }
+
+  .map-legend {
+    width: min(280px, calc(100vw - 96px));
   }
 
   .timeline {

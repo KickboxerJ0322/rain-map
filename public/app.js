@@ -6,21 +6,82 @@ const JMA_ROOT = "https://www.jma.go.jp/bosai/jmatile/data/nowc";
 const FRAME_OFFSETS = Array.from({ length: 13 }, (_, index) => index * 5);
 const NOWCAST_OBS_TIMES_URL = `${JMA_ROOT}/targetTimes_N1.json`;
 const NOWCAST_FORECAST_TIMES_URL = `${JMA_ROOT}/targetTimes_N2.json`;
-const SOURCE_JMA_ZOOMS = [8, 10];
+const NOWCAST_MULTI_LAYER_TIMES_URL = `${JMA_ROOT}/targetTimes_N3.json`;
+const LAYER_CONFIG = {
+  rain: {
+    elementId: "hrpns",
+    label: "雨雲レイヤー",
+    sourceZooms: [8, 10]
+  },
+  thunder: {
+    elementId: "thns",
+    label: "雷レイヤー",
+    sourceZooms: [8, 9]
+  },
+  tornado: {
+    elementId: "trns",
+    label: "竜巻レイヤー",
+    sourceZooms: [8, 9]
+  }
+};
+const LEGEND_CONTENT = {
+  rain: {
+    title: "雨雲レイヤー",
+    scaleClass: "rain",
+    labels: ["弱い", "強い"],
+    notes: [
+      "青: 1〜10mm/h程度",
+      "黄: 10〜20mm/h程度",
+      "赤: 20〜50mm/h程度",
+      "紫: 50mm/h以上"
+    ],
+    caption: "気象庁の降水強度凡例（1, 5, 10, 20, 30, 50, 80mm/h）をもとにした目安です。"
+  },
+  thunder: {
+    title: "雷レイヤー",
+    scaleClass: "thunder",
+    labels: ["低い", "高い"],
+    notes: [
+      "活動度1: 雷の可能性あり",
+      "活動度2: 雷鳴が予想される",
+      "活動度3: 落雷が予想される",
+      "活動度4: 頻繁な落雷が予想される"
+    ],
+    caption: "気象庁の雷ナウキャスト活動度（1〜4）を表示します。"
+  },
+  tornado: {
+    title: "竜巻レイヤー",
+    scaleClass: "tornado",
+    labels: ["低い", "高い"],
+    notes: [
+      "発生確度1: 1時間以内に1〜7%程度",
+      "発生確度2: 1時間以内に7〜14%程度"
+    ],
+    caption: "竜巻などの激しい突風の発生確度を示します。"
+  }
+};
 
 const state = {
   map: null,
-  overlay: null,
-  activeFrameIndex: 0,
-  frames: [],
+  overlays: {},
+  timelineFrames: [],
+  layerFrames: {
+    rain: [],
+    thunder: [],
+    tornado: []
+  },
   latestBaseTime: null,
-  overlayEnabled: true,
+  activeFrameIndex: 0,
+  overlayVisibility: {
+    rain: true,
+    thunder: false,
+    tornado: false
+  },
   opacity: DEFAULT_OPACITY,
   isPlaying: false,
-  isLegendVisible: true,
   playTimerId: null,
   playbackMs: DEFAULT_PLAYBACK_MS,
-  useFallbackBaseTime: false
+  activeLegend: null
 };
 
 const ui = {};
@@ -28,7 +89,7 @@ const ui = {};
 document.addEventListener("DOMContentLoaded", async () => {
   cacheElements();
   renderTimelineLabels();
-  updateLegendVisibility();
+  updateLegendUI();
 
   try {
     await loadGoogleMaps();
@@ -43,20 +104,24 @@ document.addEventListener("DOMContentLoaded", async () => {
 
 function cacheElements() {
   ui.baseTimeValue = document.getElementById("baseTimeValue");
-  ui.legendPanel = document.querySelector(".map-legend");
   ui.legendBody = document.getElementById("legendBody");
-  ui.legendToggleButton = document.getElementById("legendToggleButton");
+  ui.legendCloseButton = document.getElementById("legendCloseButton");
+  ui.legendPanel = document.getElementById("legendPanel");
+  ui.legendTabs = Array.from(document.querySelectorAll(".legend-tab"));
+  ui.legendTitle = document.getElementById("legendTitle");
   ui.locationButton = document.getElementById("locationButton");
   ui.opacitySlider = document.getElementById("opacitySlider");
   ui.opacityValue = document.getElementById("opacityValue");
-  ui.overlayToggle = document.getElementById("overlayToggle");
   ui.playButton = document.getElementById("playButton");
+  ui.rainToggle = document.getElementById("rainToggle");
   ui.refreshButton = document.getElementById("refreshButton");
   ui.speedSlider = document.getElementById("speedSlider");
   ui.speedValue = document.getElementById("speedValue");
   ui.statusBadge = document.getElementById("statusBadge");
+  ui.thunderToggle = document.getElementById("thunderToggle");
   ui.timeSlider = document.getElementById("timeSlider");
   ui.timelineLabels = document.getElementById("timelineLabels");
+  ui.tornadoToggle = document.getElementById("tornadoToggle");
   ui.validTimeValue = document.getElementById("validTimeValue");
 }
 
@@ -100,24 +165,30 @@ function initializeMap() {
     gestureHandling: "greedy"
   });
 
-  state.overlay = createNowcastOverlay();
+  state.overlays = {
+    rain: createLayerOverlay("rain"),
+    thunder: createLayerOverlay("thunder"),
+    tornado: createLayerOverlay("tornado")
+  };
 
-  state.map.overlayMapTypes.clear();
-  state.map.overlayMapTypes.push(state.overlay);
+  refreshOverlay();
 }
 
 function wireEvents() {
-  state.map.addListener("zoom_changed", () => {
+  state.map.addListener("zoom_changed", refreshOverlay);
+
+  ui.rainToggle.addEventListener("change", () => {
+    state.overlayVisibility.rain = ui.rainToggle.checked;
     refreshOverlay();
   });
 
-  ui.legendToggleButton.addEventListener("click", () => {
-    state.isLegendVisible = !state.isLegendVisible;
-    updateLegendVisibility();
+  ui.thunderToggle.addEventListener("change", () => {
+    state.overlayVisibility.thunder = ui.thunderToggle.checked;
+    refreshOverlay();
   });
 
-  ui.overlayToggle.addEventListener("change", () => {
-    state.overlayEnabled = ui.overlayToggle.checked;
+  ui.tornadoToggle.addEventListener("change", () => {
+    state.overlayVisibility.tornado = ui.tornadoToggle.checked;
     refreshOverlay();
   });
 
@@ -156,53 +227,88 @@ function wireEvents() {
   });
 
   ui.locationButton.addEventListener("click", panToCurrentLocation);
+  ui.legendCloseButton.addEventListener("click", () => {
+    state.activeLegend = null;
+    updateLegendUI();
+  });
+
+  for (const button of ui.legendTabs) {
+    button.addEventListener("click", () => {
+      const key = button.dataset.legend;
+      state.activeLegend = state.activeLegend === key ? null : key;
+      updateLegendUI();
+    });
+  }
 }
 
-function updateLegendVisibility() {
-  ui.legendPanel.classList.toggle("is-collapsed", !state.isLegendVisible);
-  ui.legendBody.classList.toggle("is-hidden", !state.isLegendVisible);
-  ui.legendToggleButton.textContent = state.isLegendVisible ? "非表示" : "表示";
-  ui.legendToggleButton.setAttribute("aria-expanded", String(state.isLegendVisible));
+function updateLegendUI() {
+  for (const button of ui.legendTabs) {
+    button.classList.toggle("is-active", button.dataset.legend === state.activeLegend);
+  }
+
+  if (!state.activeLegend) {
+    ui.legendPanel.classList.add("is-hidden");
+    return;
+  }
+
+  const config = LEGEND_CONTENT[state.activeLegend];
+  ui.legendTitle.textContent = config.title;
+  ui.legendBody.innerHTML = `
+    <div class="legend-scale ${config.scaleClass}" aria-hidden="true"></div>
+    <div class="legend-labels">
+      <span>${config.labels[0]}</span>
+      <span>${config.labels[1]}</span>
+    </div>
+    <ul class="legend-notes">
+      ${config.notes.map((note) => `<li>${note}</li>`).join("")}
+    </ul>
+    <p class="legend-caption">${config.caption}</p>
+  `;
+  ui.legendPanel.classList.remove("is-hidden");
 }
 
 async function refreshTimeline(force = false) {
   try {
-    const frames = await fetchNowcastFrames();
-    const latestBaseTime = frames[0]?.baseTime ?? null;
+    const [rainFrames, multiLayerFrames] = await Promise.all([
+      fetchRainFrames(),
+      fetchMultiLayerFrames()
+    ]);
 
-    if (!frames.length) {
-      throw new Error("No nowcast frames available");
+    if (!rainFrames.length) {
+      throw new Error("No rain frames available");
     }
 
-    if (!force && state.frames.length && isSameBaseTime(state.latestBaseTime, latestBaseTime)) {
+    const latestBaseTime = rainFrames[0].baseTime;
+    if (!force && state.timelineFrames.length && isSameBaseTime(state.latestBaseTime, latestBaseTime)) {
       updateDisplayedFrame();
       return;
     }
 
+    const thunderFrames = multiLayerFrames.filter((frame) => frame.elementId === LAYER_CONFIG.thunder.elementId);
+    const tornadoFrames = multiLayerFrames.filter((frame) => frame.elementId === LAYER_CONFIG.tornado.elementId);
+
     state.latestBaseTime = latestBaseTime;
-    state.useFallbackBaseTime = false;
-    state.frames = frames;
+    state.timelineFrames = rainFrames;
+    state.layerFrames.rain = rainFrames;
+    state.layerFrames.thunder = alignLayerFramesToTimeline(rainFrames, thunderFrames);
+    state.layerFrames.tornado = alignLayerFramesToTimeline(rainFrames, tornadoFrames);
     state.activeFrameIndex = 0;
     ui.timeSlider.value = "0";
     updateDisplayedFrame();
   } catch (error) {
     console.error(error);
-    setStatus("雨雲データの取得に失敗しました。しばらくしてから最新化してください。");
+    setStatus("レイヤーデータの取得に失敗しました。しばらくしてから最新化してください。");
   }
 }
 
-async function fetchNowcastFrames() {
+async function fetchRainFrames() {
   const [observationResponse, forecastResponse] = await Promise.all([
     fetch(NOWCAST_OBS_TIMES_URL, { cache: "no-store" }),
     fetch(NOWCAST_FORECAST_TIMES_URL, { cache: "no-store" })
   ]);
 
-  if (!observationResponse.ok) {
-    throw new Error(`Failed to fetch observation times: ${observationResponse.status}`);
-  }
-
-  if (!forecastResponse.ok) {
-    throw new Error(`Failed to fetch forecast times: ${forecastResponse.status}`);
+  if (!observationResponse.ok || !forecastResponse.ok) {
+    throw new Error("Failed to fetch rain layer times");
   }
 
   const observationTimes = await observationResponse.json();
@@ -215,42 +321,84 @@ async function fetchNowcastFrames() {
   const frames = [];
 
   if (latestObservation) {
-    frames.push(toFrame(latestObservation));
+    frames.push(toFrame(latestObservation, LAYER_CONFIG.rain.elementId));
   }
 
   for (const entry of latestForecasts) {
-    frames.push(toFrame(entry));
+    frames.push(toFrame(entry, LAYER_CONFIG.rain.elementId));
   }
 
   return frames;
 }
 
-function toFrame(entry) {
+async function fetchMultiLayerFrames() {
+  const response = await fetch(NOWCAST_MULTI_LAYER_TIMES_URL, { cache: "no-store" });
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch multi-layer times: ${response.status}`);
+  }
+
+  const entries = await response.json();
+  const frames = [];
+
+  for (const entry of entries) {
+    for (const key of ["thunder", "tornado"]) {
+      const elementId = LAYER_CONFIG[key].elementId;
+      if (entry.elements.includes(elementId)) {
+        frames.push(toFrame(entry, elementId));
+      }
+    }
+  }
+
+  return frames.sort((left, right) => left.validTime.getTime() - right.validTime.getTime());
+}
+
+function toFrame(entry, elementId) {
   const baseTime = parseJmaTimestamp(entry.basetime);
   const validTime = parseJmaTimestamp(entry.validtime);
   const offsetMinutes = Math.round((validTime.getTime() - baseTime.getTime()) / (60 * 1000));
 
   return {
+    elementId,
     offsetMinutes,
     baseTime,
     validTime
   };
 }
 
-function buildJmaTileUrl(baseTime, validTime, zoom, x, y) {
+function alignLayerFramesToTimeline(timelineFrames, layerFrames) {
+  return timelineFrames.map((timelineFrame) => {
+    let candidate = null;
+
+    for (const frame of layerFrames) {
+      if (frame.validTime.getTime() <= timelineFrame.validTime.getTime()) {
+        candidate = frame;
+        continue;
+      }
+
+      break;
+    }
+
+    return candidate ?? layerFrames[0] ?? null;
+  });
+}
+
+function buildJmaTileUrl(baseTime, validTime, elementId, zoom, x, y) {
   const normalizedX = modulo(x, 2 ** zoom);
   const base = formatJmaTimestamp(baseTime);
   const valid = formatJmaTimestamp(validTime);
 
-  return `${JMA_ROOT}/${base}/none/${valid}/surf/hrpns/${zoom}/${normalizedX}/${y}.png`;
+  return `${JMA_ROOT}/${base}/none/${valid}/surf/${elementId}/${zoom}/${normalizedX}/${y}.png`;
 }
 
-function createNowcastOverlay() {
+function createLayerOverlay(layerKey) {
+  const config = LAYER_CONFIG[layerKey];
+
   return {
-    alt: "Rain Map",
+    alt: config.label,
     maxZoom: 20,
     minZoom: 0,
-    name: "Rain Map",
+    name: config.label,
     tileSize: new google.maps.Size(256, 256),
     getTile(coord, zoom, ownerDocument) {
       const tile = ownerDocument.createElement("div");
@@ -260,21 +408,22 @@ function createNowcastOverlay() {
       tile.style.overflow = "hidden";
       tile.style.position = "relative";
 
-      if (!state.overlayEnabled || !state.frames.length || !isValidTileCoordinate(coord, zoom)) {
+      if (!isValidTileCoordinate(coord, zoom)) {
         return tile;
       }
 
-      const frame = state.frames[state.activeFrameIndex];
+      const frame = state.layerFrames[layerKey][state.activeFrameIndex];
       if (!frame) {
         return tile;
       }
 
       const normalizedX = modulo(coord.x, 2 ** zoom);
-      const sourceZooms = selectSourceZooms(zoom);
+      const sourceZooms = selectSourceZooms(zoom, config.sourceZooms);
       const tileLayers = sourceZooms.map((sourceZoom, index) =>
         buildTileLayer({
           baseTime: frame.baseTime,
           coordY: coord.y,
+          elementId: config.elementId,
           ownerDocument,
           sourceZoom,
           targetX: normalizedX,
@@ -298,11 +447,10 @@ function createNowcastOverlay() {
   };
 }
 
-function selectSourceZooms(targetZoom) {
-  const lowerZooms = SOURCE_JMA_ZOOMS.filter((zoom) => zoom <= targetZoom);
-  const higherZooms = SOURCE_JMA_ZOOMS.filter((zoom) => zoom >= targetZoom);
+function selectSourceZooms(targetZoom, sourceZooms) {
+  const lowerZooms = sourceZooms.filter((zoom) => zoom <= targetZoom);
+  const higherZooms = sourceZooms.filter((zoom) => zoom >= targetZoom);
   const selected = [];
-
   const nearestLower = lowerZooms.at(-1);
   const nearestHigher = higherZooms[0];
 
@@ -314,14 +462,14 @@ function selectSourceZooms(targetZoom) {
     selected.push(nearestHigher);
   }
 
-  if (!selected.length) {
-    selected.push(SOURCE_JMA_ZOOMS[0]);
+  if (!selected.length && sourceZooms.length) {
+    selected.push(sourceZooms[0]);
   }
 
   return selected;
 }
 
-function buildTileLayer({ baseTime, coordY, ownerDocument, sourceZoom, targetX, validTime, zoom, zIndex }) {
+function buildTileLayer({ baseTime, coordY, elementId, ownerDocument, sourceZoom, targetX, validTime, zoom, zIndex }) {
   const layer = ownerDocument.createElement("div");
   layer.style.position = "absolute";
   layer.style.inset = "0";
@@ -341,6 +489,7 @@ function buildTileLayer({ baseTime, coordY, ownerDocument, sourceZoom, targetX, 
     const childY = coordY % scale;
     layer.appendChild(createTileImage({
       baseTime,
+      elementId,
       height: 256 * scale,
       left: -childX * 256,
       ownerDocument,
@@ -370,6 +519,7 @@ function buildTileLayer({ baseTime, coordY, ownerDocument, sourceZoom, targetX, 
 
       layer.appendChild(createTileImage({
         baseTime,
+        elementId,
         height: fragmentSize,
         left: dx * fragmentSize,
         ownerDocument,
@@ -386,13 +536,13 @@ function buildTileLayer({ baseTime, coordY, ownerDocument, sourceZoom, targetX, 
   return layer;
 }
 
-function createTileImage({ baseTime, height, left, ownerDocument, sourceX, sourceY, sourceZoom, top, validTime, width }) {
+function createTileImage({ baseTime, elementId, height, left, ownerDocument, sourceX, sourceY, sourceZoom, top, validTime, width }) {
   const img = ownerDocument.createElement("img");
   img.alt = "";
   img.draggable = false;
   img.loading = "eager";
   img.decoding = "async";
-  img.src = buildJmaTileUrl(baseTime, validTime, sourceZoom, sourceX, sourceY);
+  img.src = buildJmaTileUrl(baseTime, validTime, elementId, sourceZoom, sourceX, sourceY);
   img.style.position = "absolute";
   img.style.left = `${left}px`;
   img.style.top = `${top}px`;
@@ -423,37 +573,47 @@ function parseJmaTimestamp(value) {
 }
 
 function updateDisplayedFrame() {
-  const frame = state.frames[state.activeFrameIndex];
-  if (!frame) {
+  const rainFrame = state.timelineFrames[state.activeFrameIndex];
+  if (!rainFrame) {
     return;
   }
 
-  ui.baseTimeValue.textContent = formatDisplayTime(frame.baseTime);
-  ui.validTimeValue.textContent = formatDisplayTime(frame.validTime);
+  ui.baseTimeValue.textContent = formatDisplayTime(rainFrame.baseTime);
+  ui.validTimeValue.textContent = formatDisplayTime(rainFrame.validTime);
 
-  const label = state.useFallbackBaseTime ? "前回の基準時刻で表示中" : "最新の基準時刻を表示中";
-  setStatus(`${label} | ${frame.offsetMinutes === 0 ? "実況" : `+${frame.offsetMinutes}分`}`);
+  const enabledLayers = Object.entries(state.overlayVisibility)
+    .filter(([, enabled]) => enabled)
+    .map(([key]) => LAYER_CONFIG[key].label.replace("レイヤー", ""))
+    .join(" / ");
+  const layerText = enabledLayers || "レイヤーOFF";
+  setStatus(`${layerText} | ${rainFrame.offsetMinutes === 0 ? "実況" : `+${rainFrame.offsetMinutes}分`}`);
   refreshOverlay();
 }
 
 function refreshOverlay() {
-  if (!state.overlay || !state.map) {
+  if (!state.map) {
     return;
   }
 
   state.map.overlayMapTypes.clear();
 
-  if (state.overlayEnabled) {
-    state.map.overlayMapTypes.push(state.overlay);
+  for (const key of ["rain", "thunder", "tornado"]) {
+    if (state.overlayVisibility[key]) {
+      state.map.overlayMapTypes.push(state.overlays[key]);
+    }
   }
 }
 
 function startAnimation() {
+  if (!state.timelineFrames.length) {
+    return;
+  }
+
   state.isPlaying = true;
   ui.playButton.textContent = "停止";
 
   state.playTimerId = window.setInterval(() => {
-    state.activeFrameIndex = (state.activeFrameIndex + 1) % state.frames.length;
+    state.activeFrameIndex = (state.activeFrameIndex + 1) % state.timelineFrames.length;
     ui.timeSlider.value = String(state.activeFrameIndex);
     updateDisplayedFrame();
   }, state.playbackMs);

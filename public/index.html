@@ -23,26 +23,19 @@
         <section class="map-card">
           <div id="map" aria-label="Rain cloud map"></div>
 
-          <div class="map-legend">
-            <div class="map-legend-head">
-              <strong>雨雲レイヤー</strong>
-              <button id="legendToggleButton" class="ghost-button tiny" type="button" aria-expanded="true">
-                非表示
-              </button>
+          <div class="legend-dock">
+            <div class="legend-switcher" role="group" aria-label="凡例切り替え">
+              <button class="ghost-button tiny legend-tab" data-legend="rain" type="button">雨雲</button>
+              <button class="ghost-button tiny legend-tab" data-legend="thunder" type="button">雷</button>
+              <button class="ghost-button tiny legend-tab" data-legend="tornado" type="button">竜巻</button>
             </div>
-            <div id="legendBody" class="map-legend-body">
-              <div class="legend-scale" aria-hidden="true"></div>
-              <div class="legend-labels">
-                <span>弱い</span>
-                <span>強い</span>
+
+            <div id="legendPanel" class="map-legend is-hidden" aria-live="polite">
+              <div class="map-legend-head">
+                <strong id="legendTitle">雨雲レイヤー</strong>
+                <button id="legendCloseButton" class="ghost-button tiny" type="button">閉じる</button>
               </div>
-              <ul class="legend-notes">
-                <li>青: 1〜10mm/h程度</li>
-                <li>黄: 10〜20mm/h程度</li>
-                <li>赤: 20〜50mm/h程度</li>
-                <li>紫: 50mm/h以上</li>
-              </ul>
-              <p class="legend-caption">気象庁の降水強度凡例（1, 5, 10, 20, 30, 50, 80mm/h）をもとにした目安です。</p>
+              <div id="legendBody" class="map-legend-body"></div>
             </div>
           </div>
 
@@ -53,9 +46,20 @@
           <div class="panel">
             <div class="panel-head">
               <h2>表示設定</h2>
+            </div>
+
+            <div class="toggle-stack">
               <label class="toggle">
-                <input id="overlayToggle" type="checkbox" checked>
+                <input id="rainToggle" type="checkbox" checked>
                 <span>雨雲レイヤー</span>
+              </label>
+              <label class="toggle">
+                <input id="thunderToggle" type="checkbox">
+                <span>雷レイヤー</span>
+              </label>
+              <label class="toggle">
+                <input id="tornadoToggle" type="checkbox">
+                <span>竜巻レイヤー</span>
               </label>
             </div>
 
@@ -97,9 +101,9 @@
           <div class="panel">
             <h2>使い方</h2>
             <ul class="notes">
-              <li>気象庁の「雨雲の動き」を Google Maps 上に重ねて表示します。</li>
-              <li>実況から +60 分までを 5 分刻みで切り替えます。</li>
-              <li>最新タイルが届くまでの間は 1 つ前の基準時刻へ自動で戻します。</li>
+              <li>気象庁の「雨雲の動き」「雷活動度」「竜巻発生確度」を Google Maps 上に重ねて表示します。</li>
+              <li>雨雲を基準に、実況から +60 分までを 5 分刻みで切り替えます。</li>
+              <li>雷と竜巻は 10 分更新のため、近い時刻のデータを同じタイムライン上で表示します。</li>
             </ul>
           </div>
         </aside>
