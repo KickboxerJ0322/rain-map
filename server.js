@@ -38,6 +38,12 @@ function respond(req, res) {
     return;
   }
 
+  if (pathname === "/healthz") {
+    res.writeHead(200, { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" });
+    res.end(req.method === "HEAD" ? undefined : "ok");
+    return;
+  }
+
   if (pathname === "/config.js") {
     const config = JSON.stringify({ mapsApiKey: process.env.GOOGLE_MAPS_API_KEY || "" }).replace(/</g, "\\u003c");
     res.writeHead(200, { "Content-Type": mimeTypes[".js"], "Cache-Control": "no-store" });
