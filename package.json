@@ -12,8 +12,5 @@
     "rain",
     "nowcast"
   ],
-  "license": "MIT",
-  "dependencies": {
-    "express": "^4.21.2"
-  }
+  "license": "MIT"
 }
