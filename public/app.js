@@ -126,9 +126,12 @@ function cacheElements() {
 }
 
 function renderTimelineLabels() {
-  ui.timelineLabels.innerHTML = FRAME_OFFSETS
-    .map((offset) => `<span>${offset === 0 ? "実況" : `+${offset}`}</span>`)
-    .join("");
+  const labels = FRAME_OFFSETS.map((offset) => {
+    const span = document.createElement("span");
+    span.textContent = offset === 0 ? "実況" : `+${offset}`;
+    return span;
+  });
+  ui.timelineLabels.replaceChildren(...labels);
 }
 
 async function loadGoogleMaps() {
@@ -253,17 +256,33 @@ function updateLegendUI() {
 
   const config = LEGEND_CONTENT[state.activeLegend];
   ui.legendTitle.textContent = config.title;
-  ui.legendBody.innerHTML = `
-    <div class="legend-scale ${config.scaleClass}" aria-hidden="true"></div>
-    <div class="legend-labels">
-      <span>${config.labels[0]}</span>
-      <span>${config.labels[1]}</span>
-    </div>
-    <ul class="legend-notes">
-      ${config.notes.map((note) => `<li>${note}</li>`).join("")}
-    </ul>
-    <p class="legend-caption">${config.caption}</p>
-  `;
+  const scale = document.createElement("div");
+  scale.classList.add("legend-scale");
+  if (["rain", "thunder", "tornado"].includes(config.scaleClass)) {
+    scale.classList.add(config.scaleClass);
+  }
+  scale.setAttribute("aria-hidden", "true");
+
+  const labels = document.createElement("div");
+  labels.className = "legend-labels";
+  for (const value of config.labels) {
+    const span = document.createElement("span");
+    span.textContent = value;
+    labels.appendChild(span);
+  }
+
+  const notes = document.createElement("ul");
+  notes.className = "legend-notes";
+  for (const value of config.notes) {
+    const item = document.createElement("li");
+    item.textContent = value;
+    notes.appendChild(item);
+  }
+
+  const caption = document.createElement("p");
+  caption.className = "legend-caption";
+  caption.textContent = config.caption;
+  ui.legendBody.replaceChildren(scale, labels, notes, caption);
   ui.legendPanel.classList.remove("is-hidden");
 }
 
